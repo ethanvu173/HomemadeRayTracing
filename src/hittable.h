@@ -34,3 +34,24 @@ struct world {
         return hit_anything;
     }
 };
+
+// Generates the colour of a ray emitted by the camera, based on collisions
+// with objects in the world. 
+colour ray_colour(const ray& r, const world& w, int depth) {
+    if (depth <= 0) return {0, 0, 0};
+
+    hit_record rec;
+    if (w.hit(r, 1e-8, 1e9, rec)) {
+        ray scattered;
+        colour attenuation;
+        // Recursively call ray_colour for scattered rays
+        if (rec.mat->scatter(r, rec, attenuation, scattered))
+            return attenuation.hadamard_prod(ray_colour(scattered, w, depth-1));
+        return {0, 0, 0};  // Ray absorbed by material
+    }
+
+    // Background gradient
+    vec3 unit_direction = r.direction.unit_vector();
+    auto a = 0.5*(unit_direction.y + 1.0);
+    return (1.0-a)*colour(1.0, 1.0, 1.0) + a*colour(0.5, 0.7, 1.0);
+}

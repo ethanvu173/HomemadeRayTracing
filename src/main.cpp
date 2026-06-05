@@ -1,27 +1,47 @@
 #include "camera.h"
 #include "sphere.h"
 #include "hittable.h"
+#include "cpu_renderer.h"
+#include <chrono>
 #include <iostream>
 
-// Generates the colour of a ray emitted by the camera, based on collisions
-// with objects in the world. 
-colour ray_colour(const ray& r, world& w, int depth) {
-    if (depth <= 0) return {0, 0, 0};
 
-    hit_record rec;
-    if (w.hit(r, 1e-8, 1e9, rec)) {
-        ray scattered;
-        colour attenuation;
-        // Recursively call ray_colour for scattered rays
-        if (rec.mat->scatter(r, rec, attenuation, scattered))
-            return attenuation.hadamard_prod(ray_colour(scattered, w, depth-1));
-        return {0, 0, 0};  // Ray absorbed by material
+enum mode {
+    SIMPLE,
+    MULTITHREAD
+};
+
+mode render_mode = MULTITHREAD;
+
+void simple_render(camera cam, int image_width, int image_height, int samples_per_pixel,
+                    world w, int max_depth) {
+    // Generate the image
+    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+    
+    for (int j = 0; j < image_height; j++) {
+        std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+        for (int i = 0; i < image_width; i++) {   
+            colour pixel_colour{0, 0, 0};
+
+            // Random sampling for anti-aliasing
+            for (int sample = 0; sample < samples_per_pixel; sample++) {
+                double r_u = rand_double() - 0.5;
+                double r_v = rand_double() - 0.5;
+                vec3 centre = cam.pixel00_loc + (i+r_u)*cam.pixel_delta_u + (j+r_v)*cam.pixel_delta_v;
+                ray r{cam.origin, (centre-cam.origin).unit_vector()};
+                pixel_colour += ray_colour(r, w, max_depth);
+            }
+            // Get the average pixel colour from all samples taken
+            pixel_colour = pixel_colour / samples_per_pixel;
+            write_colour(std::cout, pixel_colour);
+        }
     }
 
-    // Background gradient
-    vec3 unit_direction = r.direction.unit_vector();
-    auto a = 0.5*(unit_direction.y + 1.0);
-    return (1.0-a)*colour(1.0, 1.0, 1.0) + a*colour(0.5, 0.7, 1.0);
+    auto t2 = std::chrono::high_resolution_clock::now();
+    double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+    std::clog << "\rRendered in " << (int) ms << " ms\n";
 }
 
 int main() {
@@ -65,27 +85,27 @@ int main() {
                            vec3(1.75, -0.5, -3.0),
                            vec3(1.25, 1.2, -3.0),
                            &mat_tri2});
-       
-    // Generate the image
-    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    
+    if (render_mode == SIMPLE)
+        simple_render(cam, image_width, image_height, samples_per_pixel, w, max_depth);
+    else if (render_mode == MULTITHREAD) {
+        // Number of threads (by default, the max threads on the device)
+        int threads = std::thread::hardware_concurrency();
+        std::vector<colour> frame_buffer(image_height*image_width);
 
-    for (int j = 0; j < image_height; j++) {
-        std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-        for (int i = 0; i < image_width; i++) {   
-            colour pixel_colour{0, 0, 0};
+        auto t1 = std::chrono::high_resolution_clock::now();
 
-            // Random sampling for anti-aliasing
-            for (int sample = 0; sample < samples_per_pixel; sample++) {
-                double r_u = rand_double() - 0.5;
-                double r_v = rand_double() - 0.5;
-                vec3 centre = cam.pixel00_loc + (i+r_u)*cam.pixel_delta_u + (j+r_v)*cam.pixel_delta_v;
-                ray r{cam.origin, (centre-cam.origin).unit_vector()};
-                pixel_colour += ray_colour(r, w, max_depth);
-            }
-            // Get the average pixel colour from all samples taken
-            pixel_colour = pixel_colour / samples_per_pixel;
-            write_colour(std::cout, pixel_colour);
-        }
+        render_sections(frame_buffer.data(), image_width, image_height, 
+                        cam, w, samples_per_pixel, max_depth,
+                        64, threads);
+
+        auto t2 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+        std::clog << "Rendered in " << (int) ms << " ms\n";
+
+        // Write the colours to the ppm from the colours contained in frame_buffer
+        std::cout << "P3\n" << image_width << " " << image_height << "\n255\n";
+        for (const auto& pixel_colour : frame_buffer)
+            write_colour(std::cout, pixel_colour); 
     }
-    std::clog << "\rDone.                    \n";
 }

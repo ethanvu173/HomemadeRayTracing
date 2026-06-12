@@ -1,11 +1,13 @@
 # Homemade Ray Tracing
-A project to experiment with raytracing and (eventually) explore multi-threaded performance on both the CPU and GPU using CUDA.
+A project to experiment with raytracing and explore multithreaded performance on both the CPU and GPU using CUDA.
 ## Requirements
 * CMake 3.18+
+* [CUDA Toolkit 13.2+](https://developer.nvidia.com/cuda/toolkit)
 ## Build
 On Windows:
-1. Navigate to the directory *HomemadeRayTracing*. Create a directory named *build* and navigate to *build* in the terminal.
-2. When building for the first time, run the following commands: <br>
+1. Ensure all requirements above are installed.
+2. Navigate to the directory *HomemadeRayTracing*. Create a directory named *build* and navigate to *build* in the terminal.
+3. When building for the first time, run the following commands: <br>
 ```
 cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/Users/cielr/vcpkg/scripts/buildsystems/vcpkg.cmake
 cmake --build . --config Release
@@ -14,10 +16,16 @@ cmake --build . --config Release
 ```cmake --build . --config Release```
 ## Usage
 **When using for the first time**, navigate to the directory *HomemadeRayTracing* and create a directory named *output*.<br>
+___
 ### Generating an image
 Navigate to the directory *build* in the terminal. After building, enter the following command:<br>
 ```Release\raytracer.exe ../output/image.ppm```<br>
-You will find the image in the *output* directory. Put it into any ppm viewer to view it. 
+You will find the image in the *output* directory. Put it into any ppm viewer to view it. <br>
+___
+### Selecting rendering mode
+This program has 3 rendering modes, a simple single-threaded process, a CPU multithreaded process, and a CUDA process. <br>
+To change modes, edit the `render_mode` variable at the top of main.cpp and rebuild the program. <br>
+___
 ### Adding objects
 All the objects exist in the struct ```world```. There are 2 types of objects, **spheres** and **rectangles**. There are 3 types of materials, **lambertian** (which equally scatter light), **metal** (which is reflective), and **dielectric** (which is transparent).<br>
 <br>
@@ -53,11 +61,19 @@ w.triangles.push_back({vec3(-2.5, -0.5, -2.5),
                            vec3(-1.5, 1.0, -2.0),
                            &mat_diffuse});
 ```
+### Adding spheres to the CUDA render
+If you are rendering using CUDA, the sphere materials must be added to the array `mat_list`. Below the initialization of your materials, add the addresses of your materials like so:
+```
+std::vector<material*> mat_list = {&mat_ground, &mat_diffuse, &mat_blue, 
+                                        &mat_mirror, &mat_brushed, &mat_glass,
+                                        &mat_diamond};
+```
+Note that triangles are currently NOT supported for CUDA rendering. Do not add triangle-only materials to `mat_list`.
 ## Samples
 *main.cpp* comes with a preset scene demonstrating the capabilities of the ray tracing engine. It includes multiple spheres and triangles with different materials and colours:<br>
 <img width="600" height="338" alt="image" src="https://github.com/user-attachments/assets/7ec25d41-e5c7-4252-95ec-f5197bcebc9d" />
 <br><br>
-Below is a scene that replicates Image 18 in Peter Shirley's book Ray Tracing in One Weekend:
+Below is a scene that replicates [Image 18](https://raytracing.github.io/images/img-1.18-glass-hollow.png) in Peter Shirley's book Ray Tracing in One Weekend:
 <img width="600" height="338" alt="image" src="https://github.com/user-attachments/assets/65d0b6d3-3ecf-40b5-9194-ada3dff75c73" />
 <br>
 In *main.cpp*, replace the code underneath the comment ```// SCENE CONFIGURATION``` with the following:
@@ -78,8 +94,19 @@ In *main.cpp*, replace the code underneath the comment ```// SCENE CONFIGURATION
     w.spheres.push_back({{-1, 0, -1}, 0.4, &mat_bubble});
     w.spheres.push_back({{1, 0, -1}, 0.5, &mat_right});
 ```
+## Results
+While this program is a relatively simplistic ray tracing engine, it supports light reflection and refraction, essential for photorealistic scenes. This program also has several nice-to-haves, such as anti-alliasing and triangle shapes (which Ray Tracing in one Weekend does not have).<br>
+
+As a performance demonstrator, this program clearly shows the advantages of CPU multithreading and CUDA over conventional single-threaded processes. On my system, I have observed roughly the following render times for the different modes:
+* CPU Single-thread: 13000 ms
+* CPU Multithread: 1300 ms
+* CUDA: 64 ms <br>
+
+The extreme performance advantages of CUDA demonstrates its capabilities for smooth real-time rendering, should it be implemented.
 ## Roadmap
-* Implement CPU and GPU multi-threading, using CUDA
+* Implement triangle rendering support for CUDA
+* Implement SFML for more convenient image viewing.
+* Implement ability to move camera
 ## Attributions
 This project is based on Peter Shirley's book [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html), with several of my own modifications.
 

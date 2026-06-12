@@ -37,7 +37,7 @@ struct world {
 
 // Generates the colour of a ray emitted by the camera, based on collisions
 // with objects in the world. 
-colour ray_colour(const ray& r, const world& w, int depth) {
+inline colour ray_colour(const ray& r, const world& w, int depth) {
     if (depth <= 0) return {0, 0, 0};
 
     hit_record rec;

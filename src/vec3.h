@@ -46,6 +46,7 @@ struct vec3 {
     vec3 unit_vector() const {
         return *this / length();
     }
+    // Component multiplication (also called Hadamard product)
     vec3 hadamard_prod(const vec3& o) const {
         return {x*o.x, y*o.y, z*o.z};
     }
@@ -57,7 +58,8 @@ inline vec3 operator*(double t, const vec3& v) {
 
 using colour = vec3;
 
-void write_colour(std::ostream& out, const colour& pixel_colour) {
+// Write a colour to the output stream as a ppm, with gamma correction.
+inline void write_colour(std::ostream& out, const colour& pixel_colour) {
     double r = pixel_colour.x;
     double g = pixel_colour.y;  
     double b = pixel_colour.z;  
@@ -77,8 +79,8 @@ struct ray {
 };
 
 inline double rand_double() {
-    static std::mt19937 rng(std::random_device{}());
-    static std::uniform_real_distribution<double> dist(0.0, 1.0);
+    thread_local std::mt19937 rng(std::random_device{}());
+    thread_local std::uniform_real_distribution<double> dist(0.0, 1.0);
     return dist(rng);
 }
 

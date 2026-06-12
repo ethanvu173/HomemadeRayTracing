@@ -64,6 +64,6 @@ inline bool dielectric::scatter(const ray& r, const hit_record& rec,
 // and Schlick's approximation.
 inline double dielectric::reflectance(double cos, double refrac_idx) {
     double r0 = (1-refrac_idx) / (1+refrac_idx);
-    r0 = r0*r0;
+    r0 *= r0;
     return r0 + (1-r0) * std::pow((1-cos), 5);
 }

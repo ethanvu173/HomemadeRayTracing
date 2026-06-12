@@ -1,7 +1,6 @@
 #pragma once
 #include <thread>
 #include <atomic>
-#include "vec3.h"
 #include "camera.h"
 #include "hittable.h"
 

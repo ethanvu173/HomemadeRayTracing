@@ -17,11 +17,20 @@ enum mat_type {
 
 // Store all data in arrays to make accessing across threads possible.
 struct scene_gpu {
+    // Sphere data
     float* sphere_cx, *sphere_cy, *sphere_cz; // Centre coordinates of sphere
     float* sphere_r;
     int* sphere_mat;
     int num_spheres;
 
+    // Triangle data
+    float* tri_v0_x, *tri_v0_y, *tri_v0_z; // Vertex coordinates
+    float* tri_v1_x, *tri_v1_y, *tri_v1_z;
+    float* tri_v2_x, *tri_v2_y, *tri_v2_z; 
+    int* tri_mat;
+    int num_triangles;
+
+    // Material data
     int* mat_type;
     float* mat_r, *mat_g, *mat_b;
     float* fuzz, *refrac_idx;
@@ -37,9 +46,15 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
 
     int num_spheres = (int) w.spheres.size();
     int num_mats = (int) mats.size();
+    int num_tris = (int) w.triangles.size();
 
     std::vector<float> cx(num_spheres), cy(num_spheres), cz(num_spheres), r(num_spheres);
     std::vector<int> s_mats(num_spheres);
+
+    std::vector<float> v0_x(num_tris), v0_y(num_tris), v0_z(num_tris),
+                        v1_x(num_tris), v1_y(num_tris), v1_z(num_tris),
+                        v2_x(num_tris), v2_y(num_tris), v2_z(num_tris);
+    std::vector<int> t_mats(num_tris);
 
     for (int i = 0; i < num_spheres; ++i) {
         cx[i] = (float) w.spheres[i].centre.x;
@@ -49,6 +64,20 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
         // Search for the sphere's material from the array of materials
         s_mats[i] = (int) (std::find(mats.begin(), mats.end(),
                         w.spheres[i].mat) - mats.begin());
+    }
+
+    for (int i = 0; i < num_tris; ++i) {
+        v0_x[i] = (float) w.triangles[i].v0.x;
+        v0_y[i] = (float) w.triangles[i].v0.y;
+        v0_z[i] = (float) w.triangles[i].v0.z;
+        v1_x[i] = (float) w.triangles[i].v1.x;
+        v1_y[i] = (float) w.triangles[i].v1.y;
+        v1_z[i] = (float) w.triangles[i].v1.z;
+        v2_x[i] = (float) w.triangles[i].v2.x;
+        v2_y[i] = (float) w.triangles[i].v2.y;
+        v2_z[i] = (float) w.triangles[i].v2.z;
+        t_mats[i] = (int) (std::find(mats.begin(), mats.end(),
+                            w.triangles[i].mat) - mats.begin());
     }
 
     // Arrays of material types, colours, fuzz for metals, and index of refraction for dielectrics. 
@@ -80,6 +109,7 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
 
     scene_gpu scene{};
     scene.num_spheres = num_spheres;
+    scene.num_triangles = num_tris; 
     scene.num_mats = num_mats;
 
     // Helpers to allocate arrays and copy from the CPU
@@ -100,6 +130,18 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
     cuda_alloc_float(&scene.sphere_cz, cz);
     cuda_alloc_float(&scene.sphere_r, r);
     cuda_alloc_int(&scene.sphere_mat, s_mats);
+
+    cuda_alloc_float(&scene.tri_v0_x, v0_x);
+    cuda_alloc_float(&scene.tri_v0_y, v0_y);
+    cuda_alloc_float(&scene.tri_v0_z, v0_z);
+    cuda_alloc_float(&scene.tri_v1_x, v1_x);
+    cuda_alloc_float(&scene.tri_v1_y, v1_y);
+    cuda_alloc_float(&scene.tri_v1_z, v1_z);
+    cuda_alloc_float(&scene.tri_v2_x, v2_x);
+    cuda_alloc_float(&scene.tri_v2_y, v2_y);
+    cuda_alloc_float(&scene.tri_v2_z, v2_z);
+    cuda_alloc_int(&scene.tri_mat, t_mats);
+
     cuda_alloc_int(&scene.mat_type, m_types);
     cuda_alloc_float(&scene.mat_r, m_r);
     cuda_alloc_float(&scene.mat_g, m_g);
@@ -115,12 +157,23 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
     return scene;
 }
 
+// Free all allocated CUDA memory
 inline void free_scene_gpu(scene_gpu& scene) {
     cudaFree(scene.sphere_cx);
     cudaFree(scene.sphere_cy);
     cudaFree(scene.sphere_cz);
     cudaFree(scene.sphere_r);
     cudaFree(scene.sphere_mat);
+    cudaFree(scene.tri_v0_x);
+    cudaFree(scene.tri_v0_y);
+    cudaFree(scene.tri_v0_z);
+    cudaFree(scene.tri_v1_x);
+    cudaFree(scene.tri_v1_y);
+    cudaFree(scene.tri_v1_z);
+    cudaFree(scene.tri_v2_x);
+    cudaFree(scene.tri_v2_y);
+    cudaFree(scene.tri_v2_z);
+    cudaFree(scene.tri_mat);
     cudaFree(scene.mat_type);
     cudaFree(scene.mat_r);
     cudaFree(scene.mat_g);

@@ -25,6 +25,11 @@ struct hit_rec_gpu {
 __device__ inline float dot_f(float3 a, float3 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
 }
+__device__ inline float3 cross_f(float3 a, float3 b) {
+    return make_float3(a.y*b.z-a.z*b.y, 
+                        a.z*b.x-a.x*b.z, 
+                        a.x*b.y-a.y*b.x);
+}
 __device__ inline float3 unit_vector_f(float3 v) {
     float squared = dot_f(v, v);
     float inv = 1/sqrtf(squared);
@@ -73,6 +78,41 @@ __device__ bool hit_sphere(const scene_gpu& scene, int i, ray_gpu r,
     return true;
 }
 
+__device__ bool hit_triangle(const scene_gpu& scene, int i, ray_gpu r,
+                            float t_min, float t_max, hit_rec_gpu& rec) {
+
+    float3 v0 = make_float3(scene.tri_v0_x[i], scene.tri_v0_y[i], scene.tri_v0_z[i]);
+    float3 v1 = make_float3(scene.tri_v1_x[i], scene.tri_v1_y[i], scene.tri_v1_z[i]);
+    float3 v2 = make_float3(scene.tri_v2_x[i], scene.tri_v2_y[i], scene.tri_v2_z[i]);
+
+    float3 e1 = make_float3(v1.x-v0.x, v1.y-v0.y, v1.z-v0.z);
+    float3 e2 = make_float3(v2.x-v0.x, v2.y-v0.y, v2.z-v0.z);
+
+    float3 h = cross_f(r.dir, e2);
+    float a = dot_f(e1, h);
+    if (fabsf(a) < 1e-8f) return false;
+
+    float f = 1.f/a;
+    float3 s = make_float3(r.origin.x-v0.x, r.origin.y-v0.y, r.origin.z-v0.z);
+    float u = f * dot_f(s, h);
+    if (u < 0 || u > 1) return false;
+
+    float3 q = cross_f(s, e1);
+    float v = f * dot_f(r.dir, q);
+    if (v < 0 || u+v > 1) return false;
+
+    float t = f * dot_f(e2, q);
+    if (t < t_min || t > t_max) return false;
+
+    rec.t = t;
+    rec.point = r.at(t);
+    float3 outward_n = unit_vector_f(cross_f(e1, e2));
+    rec.front_face = dot_f(r.dir, outward_n) < 0;
+    rec.normal = rec.front_face ? outward_n : make_float3(-outward_n.x, -outward_n.y, -outward_n.z);
+    rec.mat_idx = scene.tri_mat[i];
+    return true;
+}
+
 __device__ bool scene_hit(const scene_gpu& scene, ray_gpu r, float t_min,
                             float t_max, hit_rec_gpu& rec) {
 
@@ -86,7 +126,13 @@ __device__ bool scene_hit(const scene_gpu& scene, ray_gpu r, float t_min,
             rec = temp_rec;
         }
     }
-    
+    for (int i = 0; i < scene.num_triangles; ++i) {
+        if (hit_triangle(scene, i, r, t_min, closest, temp_rec)) {
+            hit = true;
+            closest = temp_rec.t;
+            rec = temp_rec;
+        }
+    }
     return hit;
 }
 

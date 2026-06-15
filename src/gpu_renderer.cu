@@ -138,11 +138,11 @@ void cuda_render(uchar3** d_fb, int W, int H, const scene_gpu& scene,
     // Used for curand functions
     unsigned long long rng_seed = 1234LL;
     
-    cudaMalloc(d_fb, W*H*sizeof(uchar3));
+    cuda_check(cudaMalloc(d_fb, W*H*sizeof(uchar3)));
     
     dim3 block(block_size, block_size);
     dim3 grid((W+block_size-1)/block_size, (H+block_size-1)/block_size);
 
     render_kernel<<<grid, block>>>(*d_fb, W, H, scene, spp, max_depth, rng_seed);
-    cudaDeviceSynchronize();
+    cuda_check(cudaDeviceSynchronize());
 } 

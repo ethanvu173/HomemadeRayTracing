@@ -39,6 +39,15 @@ struct scene_gpu {
     float3 cam_origin, pixel00_loc, pixel_delta_u, pixel_delta_v;
 };
 
+inline void cuda_check(cudaError_t err, std::source_location loc = std::source_location::current()) {
+    if (err != cudaSuccess) {
+        std::fprintf(stderr, "CUDA error %s:%d in %s: %s\n", 
+                        loc.file_name(), loc.line(), loc.function_name(),
+                        cudaGetErrorString(err));
+        std::exit(1);
+    }
+}
+
 // Convert data about the world, object materials, and camera into
 // CUDA-compatible formats. Return as a scene_gpu object.
 inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
@@ -114,14 +123,14 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
 
     // Helpers to allocate arrays and copy from the CPU
     auto cuda_alloc_float = [&](float** dst, std::vector<float>& src) {
-        cudaMalloc(dst, src.size()*sizeof(float));
-        cudaMemcpy(*dst, src.data(), src.size()*sizeof(float),
-                    cudaMemcpyHostToDevice);
+        cuda_check(cudaMalloc(dst, src.size()*sizeof(float)));
+        cuda_check(cudaMemcpy(*dst, src.data(), src.size()*sizeof(float),
+                    cudaMemcpyHostToDevice));
     };
     auto cuda_alloc_int = [&](int** dst, std::vector<int>& src) {
-        cudaMalloc(dst, src.size()*sizeof(int));
-        cudaMemcpy(*dst, src.data(), src.size()*sizeof(int),
-                    cudaMemcpyHostToDevice);
+        cuda_check(cudaMalloc(dst, src.size()*sizeof(int)));
+        cuda_check(cudaMemcpy(*dst, src.data(), src.size()*sizeof(int),
+                    cudaMemcpyHostToDevice));
     };
 
     // Allocate all data from the scene
@@ -159,26 +168,26 @@ inline scene_gpu upload_scene(const world& w, const std::vector<material*> mats,
 
 // Free all allocated CUDA memory
 inline void free_scene_gpu(scene_gpu& scene) {
-    cudaFree(scene.sphere_cx);
-    cudaFree(scene.sphere_cy);
-    cudaFree(scene.sphere_cz);
-    cudaFree(scene.sphere_r);
-    cudaFree(scene.sphere_mat);
-    cudaFree(scene.tri_v0_x);
-    cudaFree(scene.tri_v0_y);
-    cudaFree(scene.tri_v0_z);
-    cudaFree(scene.tri_v1_x);
-    cudaFree(scene.tri_v1_y);
-    cudaFree(scene.tri_v1_z);
-    cudaFree(scene.tri_v2_x);
-    cudaFree(scene.tri_v2_y);
-    cudaFree(scene.tri_v2_z);
-    cudaFree(scene.tri_mat);
-    cudaFree(scene.mat_type);
-    cudaFree(scene.mat_r);
-    cudaFree(scene.mat_g);
-    cudaFree(scene.mat_b);
-    cudaFree(scene.fuzz);
-    cudaFree(scene.refrac_idx);
+    cuda_check(cudaFree(scene.sphere_cx));
+    cuda_check(cudaFree(scene.sphere_cy));
+    cuda_check(cudaFree(scene.sphere_cz));
+    cuda_check(cudaFree(scene.sphere_r));
+    cuda_check(cudaFree(scene.sphere_mat));
+    cuda_check(cudaFree(scene.tri_v0_x));
+    cuda_check(cudaFree(scene.tri_v0_y));
+    cuda_check(cudaFree(scene.tri_v0_z));
+    cuda_check(cudaFree(scene.tri_v1_x));
+    cuda_check(cudaFree(scene.tri_v1_y));
+    cuda_check(cudaFree(scene.tri_v1_z));
+    cuda_check(cudaFree(scene.tri_v2_x));
+    cuda_check(cudaFree(scene.tri_v2_y));
+    cuda_check(cudaFree(scene.tri_v2_z));
+    cuda_check(cudaFree(scene.tri_mat));
+    cuda_check(cudaFree(scene.mat_type));
+    cuda_check(cudaFree(scene.mat_r));
+    cuda_check(cudaFree(scene.mat_g));
+    cuda_check(cudaFree(scene.mat_b));
+    cuda_check(cudaFree(scene.fuzz));
+    cuda_check(cudaFree(scene.refrac_idx));
 }
 

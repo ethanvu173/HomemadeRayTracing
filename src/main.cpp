@@ -14,7 +14,7 @@ enum mode {
     CUDA
 };
 
-mode render_mode = SIMPLE;
+mode render_mode = CUDA;
 
 void simple_render(camera cam, int image_width, int image_height, int samples_per_pixel,
                     world w, int max_depth) {
@@ -55,7 +55,7 @@ int main() {
     int image_height = int(image_width / aspect_ratio);
     image_height = (image_height < 1) ? 1 : image_height;
 
-    camera cam = camera(image_width, image_height);
+    camera cam = camera(image_width, image_height0);
 
     // SCENE CONFIGURATION
     // Material types
@@ -73,7 +73,7 @@ int main() {
     // Array of materials for CUDA rendering
     std::vector<material*> mat_list = {&mat_ground, &mat_diffuse, &mat_blue, 
                                         &mat_mirror, &mat_brushed, &mat_glass,
-                                        &mat_diamond};
+                                        &mat_diamond, &mat_tri1, &mat_tri2};
 
     // Placing objects into the world
     world w;
@@ -129,11 +129,11 @@ int main() {
         std::clog << "Rendered in " << (int) ms << " ms\n";
         
         std::vector<uchar3> h_frame_buffer(image_width * image_height);
-        cudaMemcpy(h_frame_buffer.data(), d_frame_buffer, 
+        cuda_check(cudaMemcpy(h_frame_buffer.data(), d_frame_buffer, 
                     image_width * image_height * sizeof(uchar3),
-                    cudaMemcpyDeviceToHost);
+                    cudaMemcpyDeviceToHost));
         
-        cudaFree(d_frame_buffer);
+        cuda_check(cudaFree(d_frame_buffer));
         free_scene_gpu(scene);
         
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";

@@ -6,6 +6,7 @@
 #include "gpu_renderer.cuh"
 #include <chrono>
 #include <iostream>
+#include <SFML/Graphics.hpp>
 
 
 enum mode {
@@ -14,12 +15,90 @@ enum mode {
     CUDA
 };
 
-mode render_mode = CUDA;
+mode render_mode = SIMPLE;
+
+// Write the scene to the SFML image frame using the frame buffer pointer fb.
+void SFML_write(sf::Image* frame, colour* fb, int H, int W) {
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            const colour& c = fb[y*W+x];
+            sf::Vector2u coords = {(unsigned) x, (unsigned) y};
+            // Apply gamma correction to the colour
+            uint8_t c_x = (uint8_t) (255.f * std::sqrt(std::clamp((float)c.x, 0.f, 1.f)));
+            uint8_t c_y = (uint8_t) (255.f * std::sqrt(std::clamp((float)c.y, 0.f, 1.f)));
+            uint8_t c_z = (uint8_t) (255.f * std::sqrt(std::clamp((float)c.z, 0.f, 1.f)));
+            frame->setPixel(coords, sf::Color(c_x, c_y, c_z));
+        }
+    }
+}
+
+// Generate an SFML window and display the scene using the frame buffer fb.
+// Save the image to the output directory as a png.
+void SFML_render(std::vector<colour> fb, int H, int W) {
+    sf::Image frame;
+    frame.resize({(unsigned) W, (unsigned) H}, sf::Color::Black);
+    sf::Vector2u dimensions = {(unsigned) W, (unsigned) H};
+    sf::RenderWindow window(sf::VideoMode(dimensions), "Ray Tracer");
+    sf::Texture tex;
+
+    SFML_write(&frame, fb.data(), H, W);
+    tex.loadFromImage(frame);
+    sf::Sprite sprite(tex);
+
+    frame.saveToFile("../output/image.png");
+
+    while (window.isOpen()) {
+        while (auto event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) window.close();
+        }
+        window.clear();
+        window.draw(sprite);
+        window.display();
+    }
+}
+
+// CUDA version using CUDA supported uchar3
+void SFML_write_cuda(sf::Image* frame, uchar3* fb, int H, int W) {
+    for (int j = 0; j < H; ++j) {
+        for (int i = 0; i < W; ++i) {
+            const uchar3& c = fb[j*W+i];
+            sf::Vector2u coords = {(unsigned) i, (unsigned) j};
+            // Gamma correction already applied, do not apply now.
+            uint8_t c_x = (uint8_t) c.x;
+            uint8_t c_y = (uint8_t) c.y;
+            uint8_t c_z = (uint8_t) c.z;
+            frame->setPixel(coords, sf::Color(c_x, c_y, c_z));
+        }
+    }
+}
+
+void SFML_render_cuda(std::vector<uchar3> fb, int H, int W) {
+    sf::Image frame;
+    sf::Vector2u dimensions = {(unsigned) W, (unsigned) H};
+    frame.resize(dimensions, sf::Color::Black);
+    sf::RenderWindow window(sf::VideoMode(dimensions), "Ray Tracer");
+    sf::Texture tex;
+
+    SFML_write_cuda(&frame, fb.data(), H, W);
+    tex.loadFromImage(frame);
+    sf::Sprite sprite(tex);
+
+    frame.saveToFile("../output/image.png");
+
+    while (window.isOpen()) {
+        while (auto event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) window.close();
+        }
+        window.clear();
+        window.draw(sprite);
+        window.display();
+    }
+}
 
 void simple_render(camera cam, int image_width, int image_height, int samples_per_pixel,
                     world w, int max_depth) {
     // Generate the image
-    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    std::vector<colour> frame_buffer(image_height*image_width);
 
     auto t1 = std::chrono::high_resolution_clock::now();
 
@@ -38,13 +117,15 @@ void simple_render(camera cam, int image_width, int image_height, int samples_pe
             }
             // Get the average pixel colour from all samples taken
             pixel_colour = pixel_colour / samples_per_pixel;
-            write_colour(std::cout, pixel_colour);
+            frame_buffer[j*image_width+i] = pixel_colour;
         }
     }
 
     auto t2 = std::chrono::high_resolution_clock::now();
     double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
     std::clog << "\rRendered in " << (int) ms << " ms\n";
+
+    SFML_render(frame_buffer, image_height, image_width);
 }
 
 int main() {
@@ -55,7 +136,7 @@ int main() {
     int image_height = int(image_width / aspect_ratio);
     image_height = (image_height < 1) ? 1 : image_height;
 
-    camera cam = camera(image_width, image_height0);
+    camera cam = camera(image_width, image_height);
 
     // SCENE CONFIGURATION
     // Material types
@@ -110,11 +191,8 @@ int main() {
         auto t2 = std::chrono::high_resolution_clock::now();
         double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
         std::clog << "Rendered in " << (int) ms << " ms\n";
-
-        // Write the colours to the ppm from the colours contained in frame_buffer
-        std::cout << "P3\n" << image_width << " " << image_height << "\n255\n";
-        for (const auto& pixel_colour : frame_buffer)
-            write_colour(std::cout, pixel_colour); 
+        
+        SFML_render(frame_buffer, image_height, image_width);
     }
     else if (render_mode == CUDA) {
         int block_size = 16;
@@ -128,6 +206,7 @@ int main() {
         double ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
         std::clog << "Rendered in " << (int) ms << " ms\n";
         
+        // Copy the CUDA-generated frame buffer to the main CPU process.
         std::vector<uchar3> h_frame_buffer(image_width * image_height);
         cuda_check(cudaMemcpy(h_frame_buffer.data(), d_frame_buffer, 
                     image_width * image_height * sizeof(uchar3),
@@ -136,8 +215,6 @@ int main() {
         cuda_check(cudaFree(d_frame_buffer));
         free_scene_gpu(scene);
         
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-        for (const auto& pixel_colour : h_frame_buffer)
-            std::cout << (int) pixel_colour.x << ' ' << (int) pixel_colour.y << ' ' << (int) pixel_colour.z << '\n';
+        SFML_render_cuda(h_frame_buffer, image_height, image_width);
     }
 }

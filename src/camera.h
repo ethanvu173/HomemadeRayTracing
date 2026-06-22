@@ -5,7 +5,7 @@
 constexpr double PI = 3.14159265358979323846;
 
 struct camera {
-    vec3 origin, pixel00_loc, pixel_delta_u, pixel_delta_v;
+    vec3 origin, pixel00_loc, pixel_delta_u, pixel_delta_v, u, v, w;
 
     camera(int img_w, int img_h, vec3 lookfrom={0,0,0},
            vec3 lookat={0,0,-1}, vec3 vup={0,1,0},
@@ -20,9 +20,9 @@ struct camera {
 
         origin = lookfrom;
         // Orthonormal basis vectors describing the camera's orientation
-        vec3 w = (lookfrom - lookat).unit_vector();
-        vec3 u = (vup.cross(w)).unit_vector();
-        vec3 v = w.cross(u);
+        w = (lookfrom - lookat).unit_vector();
+        u = (vup.cross(w)).unit_vector();
+        v = w.cross(u);
         // Vectors across the horizontal and vertical edges of the viewport
         vec3 vp_u = vp_w * u;
         vec3 vp_v = vp_h * -v;
@@ -39,3 +39,20 @@ struct camera {
         return {origin, (center-origin).unit_vector()};
     }
 };
+
+inline double fast_sin(double rad) {
+    const double B = 4.0 / PI;
+    const double C = 4.0 / (PI*PI);
+    double x = B * rad - C * rad * std::abs(x);
+    const double P = 0.225;  //precision offset
+    return P * (x*std::abs(x) - x) + x;
+}
+
+inline double fast_cos(double rad) {
+    rad += PI/2;
+
+    if (rad > PI)
+        rad -= PI*2;
+
+    return sin(rad);
+}

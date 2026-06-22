@@ -3,6 +3,8 @@
 #include <iostream>
 #include <random>
 
+
+
 // Struct with 3 components for locations, colours, directions, etc.
 struct vec3 {
     double x, y, z;
@@ -27,6 +29,12 @@ struct vec3 {
         x += o.x;
         y += o.y;
         z += o.z;
+        return *this;
+    }
+    vec3& operator-=(const vec3& o) {
+        x -= o.x;
+        y -= o.y;
+        z -= o.z;
         return *this;
     }
     double dot(const vec3& o) const {

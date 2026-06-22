@@ -5,6 +5,7 @@ project(RayTracer LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CUDA_STANDARD 20)
 
+find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
 add_executable(raytracer
@@ -18,6 +19,7 @@ set_source_files_properties(src/render_cuda.cu PROPERTIES LANGUAGE CUDA)
 
 target_include_directories(raytracer PRIVATE src/)
 target_link_libraries(raytracer PRIVATE
+    SFML::Graphics SFML::Window SFML::System
     CUDA::cudart
     CUDA::curand    
 )

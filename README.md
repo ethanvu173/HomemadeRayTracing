@@ -25,11 +25,17 @@ Navigate to the directory *build* in the terminal. After building, enter the fol
 The image will appear in a window. You will also find the image in the *output* directory. <br>
 ___
 ### Selecting rendering mode
-This program has 3 rendering modes, a simple single-threaded process, a CPU multithreaded process, and a CUDA process. <br>
+This program has 4 rendering modes, a simple single-threaded process, a CPU multithreaded process, a CUDA process, and an interactable real-time rendering process. <br>
+
 To change modes, edit the `render_mode` variable at the top of main.cpp and rebuild the program. <br>
 ___
+### Using real-time rendering
+Real-time rendering is a mode that constantly renders a scene, instead of just one image. It features a moveable camera using WASD, Q and E for vertical movement, and the arrow keys to look around. <br>
+
+Real-time rendering has less anti-aliasing and fewer ray bounces to achieve a higher frame rate.
+___
 ### Adding objects
-All the objects exist in the struct ```world```. There are 2 types of objects, **spheres** and **rectangles**. There are 3 types of materials, **lambertian** (which equally scatter light), **metal** (which is reflective), and **dielectric** (which is transparent).<br>
+All the objects exist in the struct ```world```. There are 2 types of objects, **spheres** and **rectangles**. There are 3 types of materials, **lambertian** (which randomly scatter light), **metal** (which is reflective), and **dielectric** (which is transparent).<br>
 <br>
 Objects can have a **colour**. A colour is initialized like so: ```colour(r, g, b)``` where ```r, g, b``` are doubles between 0-1.<br>
 <br>
@@ -64,7 +70,7 @@ w.triangles.push_back({vec3(-2.5, -0.5, -2.5),
                            &mat_diffuse});
 ```
 ### Adding objects to the CUDA render
-If you are rendering using CUDA, all materials must be added to the array `mat_list`. Below the initialization of your materials, add the addresses of your materials like so, in the same order they were initialized:
+If you are rendering using CUDA, all materials must be added to the array `mat_list`. Below the initialization of your materials, add the addresses of your materials **in the same order they were initialized**, like so:
 ```
 std::vector<material*> mat_list = {&mat_ground, &mat_diffuse, &mat_blue, 
                                         &mat_mirror, &mat_brushed, &mat_glass,
@@ -103,9 +109,9 @@ As a performance demonstrator, this program clearly shows the advantages of CPU 
 * CPU Multithread: 1400 ms
 * CUDA: 64 ms <br>
 
-The extreme performance advantages of CUDA demonstrates its capabilities for smooth real-time rendering, should it be implemented.
+The extreme performance advantages of CUDA demonstrates its capabilities for smooth real-time rendering. Indeed, with adjusted anti-aliasing and ray bounces, a consistent framerate of >30 FPS is achieved on the same scene.
 ## Roadmap
-* Implement interactive camera movement
+* Implement light sources and shadows
 ## Attributions
 This project is based on Peter Shirley's book [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html), with several of my own modifications.
 

@@ -16,7 +16,7 @@ enum mode {
     REALTIME
 };
 
-mode render_mode = SIMPLE;
+mode render_mode = REALTIME;
 
 // Write the scene to the SFML image frame using the frame buffer pointer fb.
 void SFML_write(sf::Image* frame, colour* fb, int H, int W) {
@@ -227,6 +227,7 @@ int main() {
         // within the loop below
         vec3 lookfrom = {0, 0, 0};
         vec3 lookat = {0, 0, -1};
+        double v_rad = 0;  // Keeps track of verticle camera angle 
         double step = 0.03;  // Camera movement step
         int frames = 0;
         sf::Clock clock; // for FPS counter
@@ -294,12 +295,18 @@ int main() {
                             lookat.x = lookat.x * std::cos(step) + lookat.z * std::sin(step);
                             lookat.z = -lookat.x * std::sin(step) + lookat.z * std::cos(step);
                             break;
-                        // Naive up and down implementation. More sophisticated implementation coming soon.
                         case sf::Keyboard::Key::Up:
-                            lookat += {0, step, 0};
+                            // Vertical traverse limits
+                            if (v_rad < PI/2 - step) {
+                                lookat += cam.v * step;
+                                v_rad += step;
+                            }
                             break;
                         case sf::Keyboard::Key::Down:
-                            lookat -= {0, step, 0};
+                            if (v_rad > -PI/2 + step) {
+                                lookat -= cam.v * step;
+                                v_rad -= step;
+                            }
                             break;
                     }
                 }
